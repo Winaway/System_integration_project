@@ -17,7 +17,7 @@ from scipy.spatial import KDTree
 STATE_COUNT_THRESHOLD = 3
 SAVE_IMAGES = True
 LOGGING_THROTTLE_FACTOR = 10  # Only log at this rate (1 / Hz)
-IMAGE_PROCESS_FACTOR = 4
+IMAGE_PROCESS_FACTOR = 8
 
 class TLDetector(object):
     def __init__(self):
@@ -42,7 +42,7 @@ class TLDetector(object):
         rely on the position of the light and the camera image to predict it.
         '''
         sub3 = rospy.Subscriber('/vehicle/traffic_lights', TrafficLightArray, self.traffic_cb, queue_size=2)
-        sub6 = rospy.Subscriber('/image_color', Image, self.image_callback, queue_size=1)
+        sub6 = rospy.Subscriber('/image_color', Image, self.image_cb, queue_size=1)
 
         config_string = rospy.get_param("/traffic_light_config")
         self.config = yaml.load(config_string)
@@ -60,7 +60,8 @@ class TLDetector(object):
         self.process_count = 0
         self.image_count = 0
 
-        self.loop()
+        rospy.spin()
+#         self.loop()
 
     def loop(self):
         rate = rospy.Rate(3)
@@ -95,7 +96,6 @@ class TLDetector(object):
     def image_callback(self, msg):
         self.has_image = True
         self.camera_image = msg
-
     def pose_cb(self, msg):
         self.pose = msg
 
@@ -176,12 +176,12 @@ class TLDetector(object):
         cv_image = self.bridge.imgmsg_to_cv2(self.camera_image, "bgr8")
 
         light_state = self.light_classifier.get_classification(cv_image)
+#         light_state = light.state
         #Get classification
 #         if SAVE_IMAGES and (self.process_count % LOGGING_THROTTLE_FACTOR == 0):
 #                 save_file = "../../../imgs/{}-{:.0f}.jpeg".format(self.get_state_string(light_state), (time.time() * 100))
 #                 cv2.imwrite(save_file, cv_image)
-#         light_state = light.state
-#         print(self.get_state_string(light.state))
+
         return light_state
     def get_state_string(self, state):
         out = "unknown"
@@ -203,7 +203,7 @@ class TLDetector(object):
 
         """
         closest_light = None
-        line_wp_idx = -1
+        light_wp_idx = -1
         state = TrafficLight.UNKNOWN
 
         # List of positions that correspond to the line to stop in front of for a given intersection
@@ -225,7 +225,8 @@ class TLDetector(object):
             self.process_count += 1
             state = self.get_light_state(closest_light)
             if(self.process_count % LOGGING_THROTTLE_FACTOR == 0):
-                rospy.logwarn("DETECT-4:car_wp_idx={} line_wp_idx={}, state={}".format(car_wp_idx,line_wp_idx, self.get_state_string(state)))
+                rospy.logwarn("DETECT: line_wp_idx={}, state={}".format(line_wp_idx, self.get_state_string(state)))
+
         return line_wp_idx, state
 
 if __name__ == '__main__':
